@@ -8,18 +8,53 @@
 
 typedef enum {
     TK_PUNCT,
+    // TK_MUL,TK_DIV,TK_ADD,TK_SUB,
+    TK_PAREN,
+    // TK_LPAREN,TK_RPAREN,// ( )
+    // TK_LBRACKET,TK_RBRACKET,//[]
+    // TK_LBRACE,TK_RBRACE,//{}
     TK_NUM,
     TK_EOF
 }TokenKind;
 
+typedef enum {
+    ND_ADD,
+    ND_SUB,
+    ND_MUL,
+    ND_DIV,
+    ND_NUM,
+}NodeKind;
+
 typedef struct Token Token;
 struct Token{
-    TokenKind kind;
+    NodeKind kind;
     Token* next;
     long val;
     char* start;
     int len;
 };
+
+typedef struct Node Node;
+struct Node{
+    NodeKind kind;
+    Node* ls;
+    Node* rs;
+    long val;
+};
+
+Node* newNode(NodeKind kind,Node* ls,Node* rs){
+    Node* tmp = calloc(1,sizeof(Node));
+    tmp->kind = kind;
+    tmp->ls = ls, tmp->rs=rs;
+    return tmp;
+}   
+
+Node* newNumNode(long val){
+    Node* tmp = calloc(1,sizeof(Node));
+    tmp->kind = ND_NUM;
+    tmp->val = val;
+    return tmp;
+}
 
 void static error(char* fmt,...){
     va_list args;    
@@ -32,7 +67,6 @@ void static error(char* fmt,...){
 
 //Global argv
 static char *CurrentInput;
-
 
 void verrorAt(char* loc,char* FMT,va_list VA){
     fprintf(stderr,"%s\n",CurrentInput);
@@ -95,8 +129,15 @@ static Token* tokenHandle(char* p){
             cur->len = p-old_p;
             continue;
         }
-        if(*p=='+' || *p=='-'){
+        if(*p=='+' || *p=='-' || *p=='*' || *p=='/'){
             cur->next = getNewToken(TK_PUNCT,*p,p,p+1);
+            cur = cur->next;
+            ++p;
+            continue;
+        }
+        if(*p == '(' || *p == ')'){
+            // TK_LPAREN,TK_RPAREN
+            cur->next = getNewToken(TK_PAREN,*p,p,p+1);
             cur = cur->next;
             ++p;
             continue;
@@ -117,30 +158,113 @@ long tokenGetNum(Token* tok){
     return tok->val;
 }
 
+//------------------------------------------------------
+
+static Token* gtok;
+
+bool consume(char ch){
+    if(*(gtok->start)==ch){ 
+        gtok = gtok->next;
+        return 1;
+    }
+    return 0;
+}
+
+long consumeNum(){
+    if(gtok->kind==TK_NUM){
+        long tmp = gtok->val;
+        gtok = gtok->next;
+        return tmp;
+    }
+    errorTok(gtok,"Except Number");
+}
+
+void except(char ch){
+    if(*(gtok->start)==ch){
+        gtok = gtok->next;
+        return;
+    }
+    errorTok(gtok,"Except '%c' not found",ch);
+}
+
+Node* expr();
+
+Node* primary(){
+    if(consume('(')){
+        Node* node = expr();
+        except(')');
+        return node;
+    }
+    return newNumNode(consumeNum());
+}
+
+Node* mul(){
+    Node* node = primary();
+
+    for(;;){
+        if(consume('*')){
+            node = newNode(ND_MUL,node,primary());
+        }else if(consume('/')){
+            node = newNode(ND_DIV,node,primary());
+        }else{
+            return node;
+        }
+    }
+}
+
+Node* expr(){
+    Node* node = mul();
+
+    for(;;){
+        if(consume('+')){
+            node = newNode(ND_ADD,node,mul());
+        }else if(consume('-')){
+            node = newNode(ND_SUB,node,mul());
+        }else{
+            return node;
+        }
+    }
+}
+
+void generate(Node* node){
+    if(node->kind==ND_NUM){
+        printf("    pushq $%ld\n",node->val);
+        return;
+    }
+    generate(node->ls);
+    generate(node->rs);
+    printf("    popq %%rdi\n");
+    printf("    popq %%rax\n");
+    switch(node->kind){
+    case ND_ADD:
+        printf("    addq %%rdi, %%rax\n");
+        break;
+    case ND_SUB:
+        printf("    subq %%rdi, %%rax\n");
+        break;
+    case ND_MUL:
+        printf("    imulq %%rdi, %%rax\n");
+        break;
+    case ND_DIV:
+        printf("    cqto\n");
+        printf("    idivq %%rdi\n");
+        break;
+    }
+    printf("    pushq %%rax\n");
+}
+
 int main(int argc,char* argv[]){
     if(argc!=2){
         error("Error args %s \n",argv[1]);
     }
     CurrentInput = argv[1];
-    Token* tok = tokenHandle(CurrentInput);
-    ;
+    gtok = tokenHandle(CurrentInput);
+    Node* root = expr();
     
     printf(".globl main\n");
     printf("main:\n");
-    printf("    movq $%ld, %%rax\n",tokenGetNum(tok));
-    tok=tok->next;
-
-    while(tok->kind != TK_EOF){
-        if(equal(tok,"+")){
-            tok = tok->next;
-            printf("    addq $%ld, %%rax\n",tokenGetNum(tok));
-            tok=tok->next;;
-        }else{
-            tok = skip(tok,"-");
-            printf("    subq $%ld, %%rax\n",tokenGetNum(tok));
-            tok=tok->next;
-        }
-    }
+    generate(root);
+    printf("    popq %%rax\n");
     printf("    ret\n");
     return 0;
 }

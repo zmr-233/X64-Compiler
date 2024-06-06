@@ -26,7 +26,9 @@ assert '2+7-5' 4
 assert ' 4 + 9 - 3 + 4 ' 14
 
 # assert '2 + + 7 - 5' 0 #ERROR Except number
-# assert '2 + * 7 - 5' 0 # ERROR Unknown sign
+# assert '2 + $ 7 - 5' 0 # ERROR Unknown sign
 
+assert ' 2 * 3 * (4 + 5) -3' 51
+assert ' 2 + 3 *(4-5/1+2)-4' 1
 
 echo END
