@@ -1,7 +1,7 @@
 #!/bin/bash
 assert(){
-    argc="$1"
-    target="$2"
+    target="$1"
+    argc="$2"
     
     # ./make all
 
@@ -18,17 +18,26 @@ assert(){
     fi
 }
 
+# assert 期待值 输入值
+# [1] 返回指定数值
 assert 0 0
-assert 233 233
 assert 42 42
 
-assert '2+7-5' 4
-assert ' 4 + 9 - 3 + 4 ' 14
+# [2] 支持+ -运算符
+assert 34 '12-34+56'
 
-# assert '2 + + 7 - 5' 0 #ERROR Except number
-# assert '2 + $ 7 - 5' 0 # ERROR Unknown sign
+# [3] 支持空格
+assert 41 ' 12 + 34 - 5 '
 
-assert ' 2 * 3 * (4 + 5) -3' 51
-assert ' 2 + 3 *(4-5/1+2)-4' 1
+# [5] 支持* / ()运算符
+assert 47 '5+6*7'
+assert 15 '5*(9-6)'
+assert 17 '1-8/(2*2)+3*6'
+
+# [6] 支持一元运算的+ -
+assert 10 '-10+20'
+assert 10 '- -10'
+assert 10 '- - +10'
+assert 48 '------12*+++++----++++++++++4'
 
 echo END
