@@ -1,3 +1,5 @@
-# RVCC
+# x64/RISCV 多平台编译器
 
-[1] 指定返回值
+---
+
+by zmr_233 zmr_233@outlook.com

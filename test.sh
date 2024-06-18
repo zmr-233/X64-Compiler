@@ -1,15 +1,27 @@
 #!/bin/bash
+main="$1"
+tmp="$2"
+PLATFORM="$3"
+
 assert(){
     target="$1"
     argc="$2"
-    
-    # ./make all
 
-    ./main "$argc" > tmp.s || exit
+    "$main" "$argc" > "$tmp".s || exit
 
-    cc -o tmp tmp.s
-    ./tmp
-    result="$?"
+    if [ "$PLATFORM" = "x64" ]; then
+        cc "$tmp".s -o "$tmp"
+        "$tmp"
+        result="$?"
+    else
+        if [ ! $RISCV ] || [ -z $RISCV ]; then
+            echo "ENV \$RISCV not exist, \n Add ~/.zshrc: export RISCV=~/riscv export PATH:~/riscv/bin"
+            exit 1
+        fi
+        $RISCV/bin/riscv64-unknown-linux-gnu-gcc -static "$tmp".s -o "$tmp";
+        $RISCV/bin/qemu-riscv64 -L $RISCV/sysroot "$tmp";
+        result="$?"        
+    fi
 
     if [ "$target" = "$result" ]; then
         echo "$argc => $result"

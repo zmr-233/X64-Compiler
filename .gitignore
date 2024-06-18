@@ -15,12 +15,15 @@
 # 编译器默认生成的运行文件名
 a.out
 
-# 生成的最终的rvcc可执行文件
-/rvcc
+# 生成路径
+output/
+test/
 
 # CMake生成的文件目录
 build/
 
 # IDE相关文件夹
 .cache/
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
